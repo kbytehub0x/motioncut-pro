@@ -119,7 +119,7 @@ class _TimelineDockState extends State<TimelineDock> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.magnet_outlined,
+                            Icons.navigation,
                             size: 12,
                             color: widget.timelineState.isSnappingEnabled
                                 ? AppTheme.primary
