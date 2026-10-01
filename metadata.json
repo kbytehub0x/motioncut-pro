@@ -1,0 +1,6 @@
+{
+  "name": "MotionCut Pro Video Editor",
+  "description": "Production-ready mobile video editor built in Flutter with multi-track timeline, keyframing, offline FFmpeg pipeline, and CapCut/Alight Motion workflow.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
