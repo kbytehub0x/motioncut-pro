@@ -7,6 +7,7 @@ class ProjectActions {
   static Future<Map<String, dynamic>?> showNewProjectDialog(BuildContext context) {
     String title = 'Untitled Project';
     AspectRatioType selectedRatio = AspectRatioType.portrait9_16;
+    int selectedFps = 30;
 
     return showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -67,6 +68,33 @@ class ProjectActions {
                       );
                     }).toList(),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Frame Rate (FPS) Selector - Alight Motion inspired
+                  const Text('Frame Rate (FPS)', style: TextStyle(fontSize: 13, color: Colors.white70)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: const [
+                      {'fps': 12, 'label': '12 fps'},
+                      {'fps': 15, 'label': '15 fps'},
+                      {'fps': 24, 'label': '24 fps (Cinema)'},
+                      {'fps': 30, 'label': '30 fps (Standard)'},
+                      {'fps': 60, 'label': '60 fps (Smooth)'},
+                    ].map((item) {
+                      final val = item['fps'] as int;
+                      final label = item['label'] as String;
+                      final isSelected = val == selectedFps;
+                      return ChoiceChip(
+                        label: Text(label),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primary,
+                        onSelected: (_) {
+                          setModalState(() => selectedFps = val);
+                        },
+                      );
+                    }).toList(),
+                  ),
                   const SizedBox(height: 20),
 
                   // Submit Button
@@ -82,6 +110,7 @@ class ProjectActions {
                         Navigator.of(context).pop({
                           'title': title.isEmpty ? 'Untitled Project' : title,
                           'aspectRatio': selectedRatio,
+                          'fps': selectedFps,
                         });
                       },
                       child: const Text('Start Editing', style: TextStyle(fontWeight: FontWeight.bold)),

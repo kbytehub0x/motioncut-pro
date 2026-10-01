@@ -127,7 +127,33 @@ class EditorScreen extends ConsumerWidget {
                 onSelectClip: (clipId, trackId) =>
                     editorNotifier.selectClip(clipId, trackId: trackId),
                 onClearSelection: () => editorNotifier.selectClip(null),
-                onAddTrackMedia: () {},
+                onAddTrackMedia: () async {
+                  final picker = ref.read(mediaPickerServiceProvider);
+                  final picked = await picker.pickVideoMedia();
+                  if (picked.isNotEmpty) {
+                    final item = picked.first;
+                    final analyzer = ref.read(mediaAnalyzerServiceProvider);
+                    final meta = await analyzer.analyzeMedia(item.path);
+                    final duration = meta.durationMs > 0 ? meta.durationMs : 4000;
+                    final mainTrack = editorState.project.tracks.firstWhere(
+                      (t) => t.type == TrackType.mainVideo,
+                      orElse: () => editorState.project.tracks.first,
+                    );
+                    final newClip = ClipModel(
+                      id: const Uuid().v4(),
+                      trackId: mainTrack.id,
+                      type: ClipType.video,
+                      name: item.name,
+                      sourcePath: item.path,
+                      startTimeMs: editorState.project.totalDurationMs,
+                      durationMs: duration,
+                      sourceInMs: 0,
+                      sourceOutMs: duration,
+                    );
+                    editorNotifier.addClip(newClip);
+                    editorNotifier.selectClip(newClip.id, trackId: mainTrack.id);
+                  }
+                },
               ),
             ),
 
@@ -147,24 +173,32 @@ class EditorScreen extends ConsumerWidget {
                 final picked = await picker.pickVideoMedia();
                 if (picked.isNotEmpty) {
                   final item = picked.first;
+                  final analyzer = ref.read(mediaAnalyzerServiceProvider);
+                  final meta = await analyzer.analyzeMedia(item.path);
+                  final duration = meta.durationMs > 0 ? meta.durationMs : 4000;
+                  final mainTrack = editorState.project.tracks.firstWhere(
+                    (t) => t.type == TrackType.mainVideo,
+                    orElse: () => editorState.project.tracks.first,
+                  );
                   final newClip = ClipModel(
                     id: const Uuid().v4(),
-                    trackId: editorState.project.tracks.firstWhere((t) => t.type == TrackType.mainVideo).id,
+                    trackId: mainTrack.id,
                     type: ClipType.video,
                     name: item.name,
                     sourcePath: item.path,
                     startTimeMs: editorState.project.totalDurationMs,
-                    durationMs: 4000,
-                    sourceOutMs: 4000,
+                    durationMs: duration,
+                    sourceInMs: 0,
+                    sourceOutMs: duration,
                   );
-                  final updatedTracks = editorState.project.tracks.map((t) {
-                    if (t.type == TrackType.mainVideo) {
-                      return t.copyWith(clips: [...t.clips, newClip]);
-                    }
-                    return t;
-                  }).toList();
-                  final updatedProj = editorState.project.copyWith(tracks: updatedTracks);
-                  ref.read(projectManagerServiceProvider).saveProject(updatedProj);
+                  editorNotifier.addClip(newClip);
+                  editorNotifier.selectClip(newClip.id, trackId: mainTrack.id);
+                  editorNotifier.seek(newClip.startTimeMs);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Imported video: ${item.name}'), duration: const Duration(seconds: 2)),
+                    );
+                  }
                 }
               },
               onAddText: () {
@@ -180,25 +214,28 @@ class EditorScreen extends ConsumerWidget {
                   sourcePath: '',
                   startTimeMs: editorState.preview.playheadMs,
                   durationMs: 3000,
+                  sourceInMs: 0,
                   sourceOutMs: 3000,
                   textContent: 'TEXT OVERLAY',
                   textColorValue: 0xFFFFFFFF,
                   fontSize: 28.0,
                 );
-                final updatedTracks = editorState.project.tracks.map((t) {
-                  if (t.id == textTrack.id) {
-                    return t.copyWith(clips: [...t.clips, newTextClip]);
-                  }
-                  return t;
-                }).toList();
-                final updatedProj = editorState.project.copyWith(tracks: updatedTracks);
-                ref.read(projectManagerServiceProvider).saveProject(updatedProj);
+                editorNotifier.addClip(newTextClip);
+                editorNotifier.selectClip(newTextClip.id, trackId: textTrack.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Added text layer'), duration: Duration(seconds: 1)),
+                  );
+                }
               },
               onAddAudio: () async {
                 final picker = ref.read(mediaPickerServiceProvider);
                 final picked = await picker.pickAudioMedia();
                 if (picked.isNotEmpty) {
                   final item = picked.first;
+                  final analyzer = ref.read(mediaAnalyzerServiceProvider);
+                  final meta = await analyzer.analyzeMedia(item.path);
+                  final duration = meta.durationMs > 0 ? meta.durationMs : 6000;
                   final audioTrack = editorState.project.tracks.firstWhere(
                     (t) => t.type == TrackType.audio,
                     orElse: () => editorState.project.tracks.first,
@@ -210,18 +247,18 @@ class EditorScreen extends ConsumerWidget {
                     name: item.name,
                     sourcePath: item.path,
                     startTimeMs: editorState.preview.playheadMs,
-                    durationMs: 6000,
-                    sourceOutMs: 6000,
-                    volume: 0.8,
+                    durationMs: duration,
+                    sourceInMs: 0,
+                    sourceOutMs: duration,
+                    volume: 1.0,
                   );
-                  final updatedTracks = editorState.project.tracks.map((t) {
-                    if (t.id == audioTrack.id) {
-                      return t.copyWith(clips: [...t.clips, newAudioClip]);
-                    }
-                    return t;
-                  }).toList();
-                  final updatedProj = editorState.project.copyWith(tracks: updatedTracks);
-                  ref.read(projectManagerServiceProvider).saveProject(updatedProj);
+                  editorNotifier.addClip(newAudioClip);
+                  editorNotifier.selectClip(newAudioClip.id, trackId: audioTrack.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Imported audio track: ${item.name}'), duration: const Duration(seconds: 2)),
+                    );
+                  }
                 }
               },
               onExport: () {
@@ -281,6 +318,10 @@ class EditorScreen extends ConsumerWidget {
         return AudioTool(
           clip: selectedClip,
           onVolumeChanged: (vol) => notifier.setClipVolume(selectedClip.id, vol),
+          onKeyframesChanged: (kfs) => notifier.setClipVolumeKeyframes(selectedClip.id, kfs),
+          onExtractAudio: selectedClip.type == ClipType.video
+              ? () => notifier.extractAudioFromClip(selectedClip.id)
+              : null,
           onClose: notifier.closeTool,
         );
       case ActiveToolSheet.color:

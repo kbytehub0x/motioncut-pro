@@ -38,6 +38,7 @@ class ProjectManagerService {
   ProjectModel createNewProject({
     String? title,
     AspectRatioType aspectRatio = AspectRatioType.portrait9_16,
+    int fps = 30,
   }) {
     final now = DateTime.now();
     final projectId = _uuid.v4();
@@ -48,7 +49,7 @@ class ProjectManagerService {
       createdAt: now,
       updatedAt: now,
       aspectRatio: aspectRatio,
-      fps: 30,
+      fps: fps,
       tracks: [
         TrackModel(
           id: _uuid.v4(),

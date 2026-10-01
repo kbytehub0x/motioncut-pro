@@ -193,6 +193,65 @@ class EditorNotifier extends StateNotifier<EditorState> {
     );
   }
 
+  /// Adds a clip to the active project and updates state reactively
+  void addClip(ClipModel clip) {
+    bool trackFound = false;
+    final updatedTracks = state.project.tracks.map((track) {
+      if (track.id == clip.trackId) {
+        trackFound = true;
+        return track.copyWith(clips: [...track.clips, clip]);
+      }
+      return track;
+    }).toList();
+
+    if (!trackFound) {
+      final targetType = clip.type == ClipType.audio
+          ? TrackType.audio
+          : (clip.type == ClipType.text ? TrackType.text : TrackType.mainVideo);
+      final idx = updatedTracks.indexWhere((t) => t.type == targetType);
+      if (idx != -1) {
+        final targetTrack = updatedTracks[idx];
+        updatedTracks[idx] = targetTrack.copyWith(
+          clips: [...targetTrack.clips, clip.copyWith(trackId: targetTrack.id)],
+        );
+      }
+    }
+
+    state = state.copyWith(
+      project: state.project.copyWith(tracks: updatedTracks, updatedAt: DateTime.now()),
+      isDirty: true,
+    );
+  }
+
+  /// Extracts the audio stream from a video clip onto the dedicated audio track (Alight Motion feature)
+  void extractAudioFromClip(String clipId) {
+    final clip = state.project.findClip(clipId);
+    if (clip == null || clip.type != ClipType.video) return;
+
+    final audioTrack = state.project.tracks.firstWhere(
+      (t) => t.type == TrackType.audio,
+      orElse: () => state.project.tracks.first,
+    );
+
+    final extractedAudio = ClipModel(
+      id: 'audio_extract_${DateTime.now().millisecondsSinceEpoch}',
+      trackId: audioTrack.id,
+      type: ClipType.audio,
+      name: '${clip.name} (Audio)',
+      sourcePath: clip.sourcePath,
+      startTimeMs: clip.startTimeMs,
+      durationMs: clip.durationMs,
+      sourceInMs: clip.sourceInMs,
+      sourceOutMs: clip.sourceOutMs,
+      volume: clip.volume,
+    );
+
+    // Mute original video clip audio to prevent duplicate audio playback
+    setClipVolume(clipId, 0.0);
+    addClip(extractedAudio);
+    selectClip(extractedAudio.id, trackId: audioTrack.id);
+  }
+
   /// Sets clip volume
   void setClipVolume(String clipId, double volume) {
     final updatedTracks = state.project.tracks.map((track) {
@@ -206,6 +265,23 @@ class EditorNotifier extends StateNotifier<EditorState> {
 
     state = state.copyWith(
       project: state.project.copyWith(tracks: updatedTracks),
+      isDirty: true,
+    );
+  }
+
+  /// Sets volume keyframes on a clip (for Fade In, Fade Out, and Alight Motion envelopes)
+  void setClipVolumeKeyframes(String clipId, List<KeyframeModel> keyframes) {
+    final updatedTracks = state.project.tracks.map((track) {
+      final idx = track.clips.indexWhere((c) => c.id == clipId);
+      if (idx == -1) return track;
+
+      final updatedClips = List<ClipModel>.from(track.clips);
+      updatedClips[idx] = updatedClips[idx].copyWith(volumeKeyframes: keyframes);
+      return track.copyWith(clips: updatedClips);
+    }).toList();
+
+    state = state.copyWith(
+      project: state.project.copyWith(tracks: updatedTracks, updatedAt: DateTime.now()),
       isDirty: true,
     );
   }

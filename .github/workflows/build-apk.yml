@@ -28,7 +28,12 @@ jobs:
           cache: true
 
       - name: Initialize Android Platform Scaffolding
-        run: flutter create . --org com.motioncut.pro --project-name motioncut_pro --platforms=android
+        run: |
+          # Backup our customized AndroidManifest.xml with Android 13/14 permissions
+          cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml.bak
+          flutter create . --org com.motioncut.pro --project-name motioncut_pro --platforms=android
+          # Restore the custom AndroidManifest.xml
+          cp /tmp/AndroidManifest.xml.bak android/app/src/main/AndroidManifest.xml
 
       - name: Install Dependencies
         run: flutter pub get
@@ -45,3 +50,11 @@ jobs:
           name: release-apk
           path: build/app/outputs/flutter-apk/*.apk
           retention-days: 14
+
+      - name: Publish APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/app/outputs/flutter-apk/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

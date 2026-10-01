@@ -45,6 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final newProject = manager.createNewProject(
       title: result['title'] as String,
       aspectRatio: result['aspectRatio'] as AspectRatioType,
+      fps: result['fps'] as int? ?? 30,
     );
     await manager.saveProject(newProject);
     await _loadProjects();
